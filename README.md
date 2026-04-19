@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ## 环境配置
 
 以 uv 管理的虚拟环境为例：
@@ -22,3 +23,7 @@ uv pip install -e ".[web]"
 ## 服务部署
 
 参考 `deploy/README.md`
+=======
+# MUA-DataPlatform
+For gui agent
+>>>>>>> 2a565f34b68bb353224093e5db51f3a70590c308
