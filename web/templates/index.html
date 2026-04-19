@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GUIAgent 数据采集平台</title>
+    
+    <!-- 浏览器优化配置 -->
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="msapplication-tap-highlight" content="no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <style>
+    /* 隐藏所有数字输入框的增减箭头 */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    </style>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    
+    <!-- CSS Dependencies -->
+    <link href="static/css/vendors/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="static/css/vendors/vis.min.css" rel="stylesheet" type="text/css" />
+    <link href="static/css/vendors/codemirror/codemirror.css" rel="stylesheet" type="text/css" />
+    <link href="static/css/droidbot.css" rel="stylesheet" type="text/css" media="screen and (min-width: 1920px)" />
+    <link href="static/css/droidbot-laptop.css" rel="stylesheet" type="text/css" media="screen and (max-width: 1919px)" />
+
+    <!-- JavaScript Dependencies -->
+    <script type="text/javascript" src="static/js/vendors/vis.min.js"></script>
+    <script type="text/javascript" src="static/js/vendors/jquery.min.js"></script>
+    <script type="text/javascript" src="static/js/vendors/bootstrap.min.js"></script>
+    <script type="text/javascript" src="static/js/vendors/codemirror/codemirror.js"></script>
+    <script type="text/javascript" src="static/js/vendors/codemirror/yaml.js"></script>
+    
+    <!-- API Client -->
+    <script type="text/javascript" src="static/js/api/client.js"></script>
+    
+    <!-- Utils -->
+    <script type="text/javascript" src="static/js/utils/event-str-parser.js"></script>
+    
+    <!-- Application Components -->
+    <script type="text/javascript" src="static/js/components/confirm-dialog.js"></script>
+    <script type="text/javascript" src="static/js/components/task-selection-dialog.js"></script>
+    <script type="text/javascript" src="static/js/components/labels-edit-dialog.js"></script>
+    <script type="text/javascript" src="static/js/components/event-edit-dialog.js"></script>
+    <script type="text/javascript" src="static/js/components/deleted-nodes-dialog.js"></script>
+    <script type="text/javascript" src="static/js/components/utg-viewer.js"></script>
+    <script type="text/javascript" src="static/js/components/node-editor.js"></script>
+    <script type="text/javascript" src="static/js/components/task-recorder.js"></script>
+    <script type="text/javascript" src="static/js/components/data-editor.js"></script>
+    <script type="text/javascript" src="static/js/components/user-manager.js"></script>
+    <script type="text/javascript" src="static/js/components/task-manager.js"></script>
+    <script type="text/javascript" src="static/js/components/batch-manager.js"></script>
+    <script type="text/javascript" src="static/js/components/cloud-device-manager.js"></script>
+    <script type="text/javascript" src="static/js/components/recording-exception-manager.js"></script>
+
+    <!-- Main Application -->
+    <script type="text/javascript" src="static/js/app.js"></script>
+  </head>
+
+  <body>
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">切换导航</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+          <ul class="nav navbar-nav navbar-left">
+            <li><a href="#" onclick="showTaskRecorder()">任务录制</a></li>
+            <li><a href="#" onclick="showDataEditor()">数据编辑</a></li>
+            <li><a href="#" onclick="showUserManager()">用户管理</a></li>
+            <li><a href="#" onclick="showTaskManager()">任务管理</a></li>
+            <li><a href="#" onclick="showCloudDeviceManager()">设备管理</a></li>
+            <li><a href="#" onclick="showRecordingExceptionManager()">录制异常</a></li>
+          </ul>
+          <ul class="nav navbar-nav navbar-right">
+            <li><a class="navbar-brand" href="#">GUIAgent 数据采集平台</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container-fluid full_height">
+      <div class="row full_height" id="main-content-row">
+        <div class="col-md-4 sidebar full_height" id="control_panel">
+          <div class="loading-container">
+            <h2>加载中...</h2>
+            <p>正在初始化 GUIAgent 数据采集平台</p>
+          </div>
+        </div>
+        <div class="col-md-8 full_height" id="utg_div">
+          <!-- UTG visualization main area -->
+          <div id="utg_main" class="utg-main-area">
+            <!-- UTG visualization will be rendered here -->
+          </div>
+
+          <!-- Collapsible right sidebar for node/edge details -->
+          <div id="utg_details_sidebar" class="details-sidebar collapsed">
+            <div class="sidebar-header">
+              <button type="button" class="sidebar-close-btn" onclick="window.toggleDetailsSidebar()">
+                <span class="glyphicon glyphicon-remove"></span>
+              </button>
+            </div>
+            <div class="sidebar-content" id="utg_details_content">
+              <p>点击节点或边查看详情</p>
+            </div>
+          </div>
+
+          <!-- Sidebar toggle button (always visible in bottom-right) -->
+          <button id="sidebar_toggle_btn" class="sidebar-toggle-btn" onclick="window.toggleDetailsSidebar()">
+            <span class="glyphicon glyphicon-info-sign"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- User Management Container (full page) -->
+      <div id="user-management-container" style="display: none; padding: 20px;">
+        <!-- User Management content will be rendered here -->
+      </div>
+
+      <!-- Task Management Container (full page) -->
+      <div id="task-management-container" style="display: none; padding: 20px;">
+        <!-- Task Management content will be rendered here -->
+      </div>
+
+      <!-- Batch Management Container (full page) -->
+      <div id="batch-manager-container" style="display: none; padding: 20px;">
+        <!-- Batch Management content will be rendered here -->
+      </div>
+
+      <!-- Cloud Device Management Container (full page, admin only) -->
+      <div id="cloud-device-container" style="display: none; padding: 20px;">
+        <!-- Cloud Device Management content will be rendered here -->
+      </div>
+
+      <!-- Recording Exception Management Container (full page, admin only) -->
+      <div id="recording-exception-container" style="display: none; padding: 20px;">
+        <!-- Recording Exception Management content will be rendered here -->
+      </div>
+    </div>
+
+    <!-- Edit Dialog Modal -->
+    <div id="edit-dialog-overlay" class="dialog-overlay" style="display: none;">
+      <div class="dialog-container">
+        <div class="dialog-header">
+          <h4 id="dialog-title">编辑事件</h4>
+          <button type="button" class="dialog-close" onclick="window.eventEditDialog.close()">&times;</button>
+        </div>
+        <div class="dialog-body">
+          <form id="edit-dialog-form">
+            <!-- From state selection (for edge editing and adding) -->
+            <div class="form-group" id="dialog-from-state-group" style="display: none;">
+              <label>起始状态：</label>
+              <select id="dialog-from-state" class="form-control"></select>
+            </div>
+            
+            <!-- Target state selection (for edge editing and adding) -->
+            <div class="form-group" id="dialog-target-state-group" style="display: none;">
+              <label>目标状态：</label>
+              <select id="dialog-target-state" class="form-control"></select>
+            </div>
+            
+            <!-- Event type selection -->
+            <div class="form-group">
+              <label>事件类型：</label>
+              <select id="dialog-event-type" class="form-control">
+                <option value="touch">touch</option>
+                <option value="swipe">swipe</option>
+                <option value="put_text">put_text</option>
+                <option value="hotkey">hotkey</option>
+              </select>
+            </div>
+            
+            <!-- Field-based editing interface -->
+            <div id="dialog-field-mode">
+              <div id="dialog-parsed-fields">
+                <!-- Dynamic field inputs will be inserted here -->
+              </div>
+              <div class="form-group">
+                <label>生成的事件字符串：</label>
+                <textarea id="dialog-generated-event-str" class="form-control" rows="3" readonly style="background-color: #f9f9f9;"></textarea>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="dialog-footer">
+          <button type="button" class="btn btn-success" onclick="window.eventEditDialog.save()">保存</button>
+          <button type="button" class="btn btn-secondary" onclick="window.eventEditDialog.close()">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Labels Edit Dialog Modal -->
+    <div id="labels-edit-dialog-overlay" class="dialog-overlay" style="display: none;">
+      <div class="dialog-container">
+        <div class="dialog-header">
+          <h4>编辑标签</h4>
+          <button type="button" class="dialog-close" onclick="window.labelsEditDialog.close()">&times;</button>
+        </div>
+        <div class="dialog-body">
+          <form id="labels-edit-dialog-form">
+            <div class="form-group">
+              <label>输入标签（用分号分隔）：</label>
+              <input type="text" class="form-control" id="labels-edit-input"
+                     placeholder="例如：NEED_FEEDBACK;FINISH;COULD_FINISH">
+              <div style="margin-top: 8px;">
+                <small class="text-muted">快速添加：</small>
+                <span class="label label-default" style="cursor: pointer; margin-right: 5px;" data-label="NEED_FEEDBACK">NEED_FEEDBACK</span>
+                <span class="label label-default" style="cursor: pointer; margin-right: 5px;" data-label="FINISH">FINISH</span>
+                <span class="label label-default" style="cursor: pointer; margin-right: 5px;" data-label="COULD_FINISH">COULD_FINISH</span>
+              </div>
+              <!-- 新增score输入 -->
+              <div id="finish-rating-area" style="margin-top: 8px; display: none;">
+                <small class="text-muted">FINISH 元数据：</small>
+                <div style="margin-top: 6px;">
+                  <small class="text-muted">评分：</small>
+                <input type="number" id="finish-rating-input" class="finish-rating-input--no-spin" placeholder="0-100" style="width: 80px; margin-right: 5px;">
+                <!-- 新增常用评分快速按键 -->
+                <div style="display: inline-block; margin-left: 8px;">
+                  <span class="label label-default" style="cursor: pointer; margin-right: 3px;" data-score="100">100</span>
+                  <span class="label label-default" style="cursor: pointer; margin-right: 3px;" data-score="98">98</span>
+                  <span class="label label-default" style="cursor: pointer; margin-right: 3px;" data-score="95">95</span>
+                  <span class="label label-default" style="cursor: pointer; margin-right: 3px;" data-score="90">90</span>
+                  <span class="label label-default" style="cursor: pointer; margin-right: 3px;" data-score="80">80</span>
+                  <span class="label label-default" style="cursor: pointer; margin-right: 3px;" data-score="75">75</span>
+                  <span class="label label-default" style="cursor: pointer;" data-score="70">70</span>
+                </div>
+                </div>
+                <div class="form-group" style="margin-top: 10px;">
+                  <label for="finish-assistant-final-input">助手最终回复（展示给用户）</label>
+                  <textarea id="finish-assistant-final-input" class="form-control" rows="3"
+                            placeholder="请输入助手在任务完成时展示给用户的最终回复，可留空"></textarea>
+                </div>
+              </div>
+              <!-- NEED_FEEDBACK 反馈元数据 -->
+              <div id="need-feedback-area" style="margin-top: 10px; display: none;">
+                <small class="text-muted">NEED_FEEDBACK 元数据：</small>
+                <div class="form-group" style="margin-top: 6px;">
+                  <label for="need-feedback-assistant-question-input">助手提问（展示给用户）</label>
+                  <textarea id="need-feedback-assistant-question-input" class="form-control" rows="2"
+                            placeholder="请输入助手展示给用户的问题或引导语"></textarea>
+                </div>
+                <div class="form-group" style="margin-top: 6px;">
+                  <label for="need-feedback-user-feedback-input">用户反馈（用户填写）</label>
+                  <textarea id="need-feedback-user-feedback-input" class="form-control" rows="2"
+                            placeholder="请输入用户提供的补充反馈，如无可留空"></textarea>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="dialog-footer">
+          <button type="button" class="btn btn-success" onclick="window.labelsEditDialog.save()">保存</button>
+          <button type="button" class="btn btn-secondary" onclick="window.labelsEditDialog.close()">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm Dialog Modal -->
+    <div id="confirm-dialog-overlay" class="dialog-overlay" style="display: none;">
+      <div class="dialog-container">
+        <div class="dialog-header">
+          <h4>确认删除</h4>
+          <button type="button" class="dialog-close" onclick="window.confirmDialog.close(false)">&times;</button>
+        </div>
+        <div class="dialog-body">
+          <div id="confirm-dialog-content">
+            <!-- Content will be inserted here -->
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button type="button" class="btn btn-danger" id="confirm-dialog-confirm" onclick="window.confirmDialog.close(true)">确定</button>
+          <button type="button" class="btn btn-secondary" onclick="window.confirmDialog.close(false)">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Point Image Editor Modal -->
+    <div id="point-image-editor-overlay" class="dialog-overlay" style="display: none;">
+      <div class="dialog-container" style="max-width: 900px; width: 95%; max-height: 90vh;">
+        <div class="dialog-header">
+          <h4 id="point-editor-title">点击图片设置坐标点</h4>
+          <button type="button" class="dialog-close" onclick="window.eventEditDialog.closePointImageEditor()">&times;</button>
+        </div>
+        <div class="dialog-body" style="padding: 10px;">
+          <div id="point-editor-content">
+            <div style="text-align: center; margin-bottom: 10px;">
+              <p id="point-editor-instructions"><strong>说明：</strong>点击图片设置坐标，使用缩放按钮或 Ctrl+滚轮调整图片大小。</p>
+            </div>
+            
+            <!-- Zoom Controls -->
+            <div class="zoom-controls" style="text-align: center; margin-bottom: 10px;">
+              <button type="button" class="btn btn-sm btn-default" onclick="window.eventEditDialog.zoomImage(0.8)">
+                <span class="glyphicon glyphicon-zoom-out"></span> 缩小
+              </button>
+              <span id="zoom-level" style="margin: 0 15px; font-weight: bold;">100%</span>
+              <button type="button" class="btn btn-sm btn-default" onclick="window.eventEditDialog.zoomImage(1.25)">
+                <span class="glyphicon glyphicon-zoom-in"></span> 放大
+              </button>
+              <button type="button" class="btn btn-sm btn-info" onclick="window.eventEditDialog.resetZoom()" style="margin-left: 15px;">
+                <span class="glyphicon glyphicon-resize-full"></span> 重置
+              </button>
+            </div>
+            
+            <!-- Image Container with Scrolling -->
+            <div id="point-editor-scroll-container" style="max-height: 400px; overflow: auto; border: 1px solid #ddd; text-align: center; background-color: #f9f9f9;">
+              <div id="point-editor-image-container" style="position: relative; display: inline-block;">
+                <img id="point-editor-image" style="display: block; cursor: crosshair;" />
+                <div id="point-editor-crosshair" style="position: absolute; display: none; width: 12px; height: 12px; border: 2px solid red; border-radius: 50%; margin: -6px 0 0 -6px; pointer-events: none; z-index: 10;"></div>
+              </div>
+            </div>
+            
+            <div style="margin-top: 15px;">
+              <div class="row">
+                <div class="col-md-6">
+                  <label>X 坐标：</label>
+                  <input type="number" id="point-editor-x" class="form-control" readonly style="background-color: #f9f9f9;" />
+                </div>
+                <div class="col-md-6">
+                  <label>Y 坐标：</label>
+                  <input type="number" id="point-editor-y" class="form-control" readonly style="background-color: #f9f9f9;" />
+                </div>
+              </div>
+              <div class="row" style="margin-top: 10px;">
+                <div class="col-md-12">
+                  <small class="text-muted">坐标会根据图片上的相对位置缩放到 0-1000。</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button type="button" class="btn btn-success" onclick="window.eventEditDialog.applyPointCoordinates()">应用</button>
+          <button type="button" class="btn btn-secondary" onclick="window.eventEditDialog.closePointImageEditor()">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Version info footer (optional) -->
+    <div id="version-info" style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: #999; z-index: 1000;">
+      GUIAgent Data Labeling v1.0.0
+    </div>
+
+    <!-- Error handling script -->
+    <script>
+      // Global error handler
+      window.addEventListener('error', function(event) {
+        console.error('Global error:', event.error);
+        
+        // Show user-friendly error message
+        if (window.showError) {
+          window.showError('发生未知错误，请查看控制台详情。');
+        }
+      });
+
+      // Unhandled promise rejection handler
+      window.addEventListener('unhandledrejection', function(event) {
+        console.error('Unhandled promise rejection:', event.reason);
+        
+        if (window.showError) {
+          window.showError('发生网络或处理错误，请重试。');
+        }
+      });
+
+      // UTG Details Sidebar functionality
+      window.toggleDetailsSidebar = function(forceShow = null) {
+        const sidebar = document.getElementById('utg_details_sidebar');
+        const toggleBtn = document.getElementById('sidebar_toggle_btn');
+        
+        if (forceShow === true) {
+          // Force show
+          sidebar.classList.remove('collapsed');
+          toggleBtn.classList.add('hidden');
+        } else if (forceShow === false) {
+          // Force hide
+          sidebar.classList.add('collapsed');
+          toggleBtn.classList.remove('hidden');
+        } else {
+          // Toggle
+          if (sidebar.classList.contains('collapsed')) {
+            sidebar.classList.remove('collapsed');
+            toggleBtn.classList.add('hidden');
+          } else {
+            sidebar.classList.add('collapsed');
+            toggleBtn.classList.remove('hidden');
+          }
+        }
+      };
+      
+      window.showDetailsSidebar = function(title, content) {
+        console.log('showDetailsSidebar called with:', title, content);
+        const sidebar = document.getElementById('utg_details_sidebar');
+        const contentEl = document.getElementById('utg_details_content');
+        const toggleBtn = document.getElementById('sidebar_toggle_btn');
+        
+        console.log('Elements found:', {
+          sidebar: !!sidebar,
+          contentEl: !!contentEl,
+          toggleBtn: !!toggleBtn
+        });
+        
+        // Set content if element exists
+        if (contentEl) {
+          contentEl.innerHTML = content || '<p>暂无详情</p>';
+        } else {
+          console.error('contentEl is null!');
+        }
+        
+        // Show sidebar
+        if (sidebar) {
+          sidebar.classList.remove('collapsed');
+        } else {
+          console.error('sidebar is null!');
+        }
+        if (toggleBtn) {
+          toggleBtn.classList.add('hidden');
+        } else {
+          console.error('toggleBtn is null!');
+        }
+      };
+
+      // API availability check
+      document.addEventListener('DOMContentLoaded', function() {
+        // Simple health check after 2 seconds
+        setTimeout(async function() {
+          try {
+            const response = await fetch('/api/health');
+            if (!response.ok) {
+              throw new Error('API not available');
+            }
+            console.log('API health check passed');
+          } catch (error) {
+            console.error('API health check failed:', error);
+            if (window.showError) {
+              window.showError('API 服务未响应，请检查服务状态。');
+            }
+          }
+        }, 2000);
+      });
+    </script>
+  </body>
+</html>

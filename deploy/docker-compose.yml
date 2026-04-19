@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: droidbot-mysql
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-droidbot_web}
+      MYSQL_USER: ${MYSQL_USER:-droidbot_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - droidbot-network
+
+  web:
+    build:
+      context: ..          # 构建上下文是父目录
+      dockerfile: deploy/Dockerfile  # 指定 Dockerfile 路径
+    container_name: droidbot-web
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "${PORT:-8888}:${PORT:-8888}"
+    volumes:
+      - ${DATA_DIR:-./data}:/app/data  # 数据目录挂载
+      - ${ADB_VENDOR_KEYS}:/app/keys/adb_key:ro  # ADB vendor key
+    environment:
+      TZ: Asia/Shanghai
+      ADB_VENDOR_KEYS: /app/keys/adb_key
+      VOLC_ACCESSKEY: ${VOLC_ACCESSKEY}
+      VOLC_SECRETKEY: ${VOLC_SECRETKEY}
+      VOLC_REGION: ${VOLC_REGION}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER:-droidbot_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-droidbot_web}
+      SECRET_KEY: ${SECRET_KEY}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      WORKSPACE_IDLE_TIMEOUT_SECONDS: ${WORKSPACE_IDLE_TIMEOUT_SECONDS:-1800}
+      DEVICE_SESSION_IDLE_TIMEOUT_SECONDS: ${DEVICE_SESSION_IDLE_TIMEOUT_SECONDS:-300}
+      RECORDING_RUNTIME_LEASE_SECONDS: ${RECORDING_RUNTIME_LEASE_SECONDS:-90}
+      WEBSOCKET_PING_INTERVAL_SECONDS: ${WEBSOCKET_PING_INTERVAL_SECONDS:-15}
+      WEBSOCKET_PONG_TIMEOUT_SECONDS: ${WEBSOCKET_PONG_TIMEOUT_SECONDS:-10}
+      SESSION_CLEANUP_INTERVAL: ${SESSION_CLEANUP_INTERVAL:-20}
+      PORT: ${PORT:-8888}
+      HOST: ${HOST:-0.0.0.0}
+      DATA_DIR: /app/data
+      RECORD_DIR: /app/data/record
+      DEBUG: ${DEBUG:-False}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["*"]}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@localhost}
+      YOLO_MAX_QUEUE_SIZE: ${YOLO_MAX_QUEUE_SIZE:-64}
+      YOLO_NUM_THREADS: ${YOLO_NUM_THREADS:-1}
+      YOLO_INFERENCE_TIMEOUT: ${YOLO_INFERENCE_TIMEOUT:-30}
+      YOLO_MODEL_PATH: ${YOLO_MODEL_PATH:-NONE}
+      YOLO_ONNX_IMGSZ: ${YOLO_ONNX_IMGSZ:-640}
+      YOLO_ONNX_CONF: ${YOLO_ONNX_CONF:-0.2}
+      YOLO_ONNX_IOU: ${YOLO_ONNX_IOU:-0.7}
+    restart: unless-stopped
+    networks:
+      - droidbot-network
+
+volumes:
+  mysql_data:
+
+networks:
+  droidbot-network:
+    driver: bridge

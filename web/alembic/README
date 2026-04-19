@@ -1,0 +1,378 @@
+# Alembic 数据库迁移
+
+这个目录包含 Alembic 数据库迁移配置和脚本。
+
+## 目录结构
+
+```
+alembic/
+├── README                  # 本文件
+├── env.py                  # Alembic 运行环境配置
+├── script.py.mako          # 迁移脚本模板
+└── versions/               # 迁移脚本目录
+    └── xxxx_*.py           # 具体的迁移脚本
+```
+
+## 文件说明
+
+### env.py - 运行环境配置
+
+**作用**：配置 Alembic 如何连接数据库和识别模型
+
+**核心功能**：
+1. 导入所有 SQLModel 模型（User, Task 等）
+2. 从环境变量读取数据库连接 URL
+3. 设置 SQLModel.metadata 为 target_metadata
+4. 定义 offline 和 online 迁移模式
+
+**重要**：每次添加新模型时，必须在此文件中导入！
+
+```python
+# 添加新模型时需要导入
+from backend.models.user import User
+from backend.models.task import Task  # 新增模型需要添加这一行
+```
+
+### script.py.mako - 迁移脚本模板
+
+**作用**：定义生成的迁移脚本的结构
+
+**工作原理**：
+- 当执行 `alembic revision` 时，Alembic 使用这个模板生成新的迁移文件
+- 模板中的 `${variable}` 会被实际值替换
+
+**通常不需要修改**，除非要自定义迁移脚本格式。
+
+### versions/ - 迁移脚本目录
+
+**作用**：存储所有迁移脚本
+
+**文件命名**：`{revision_id}_{message}.py`
+- 例如：`abc123_create_users_table.py`
+
+**每个迁移文件包含**：
+- `revision` - 当前迁移的唯一 ID
+- `down_revision` - 上一个迁移的 ID（形成迁移链）
+- `upgrade()` - 升级数据库的 SQL 操作
+- `downgrade()` - 回滚数据库的 SQL 操作
+
+## 常用命令
+
+### 1. 创建迁移（自动生成）
+
+```bash
+cd $PROJECT_ROOT/web
+source ../.venv/bin/activate
+
+# 自动检测模型变更并生成迁移脚本
+alembic revision --autogenerate -m "描述变更内容"
+```
+
+**示例**：
+```bash
+alembic revision --autogenerate -m "Create users table"
+alembic revision --autogenerate -m "Add email_verified column to users"
+alembic revision --autogenerate -m "Create tasks table"
+```
+
+**生成的文件**：
+- 位置：`alembic/versions/xxxx_create_users_table.py`
+- 包含：创建表的 SQL 和回滚 SQL
+
+### 2. 执行迁移（升级数据库）
+
+```bash
+# 升级到最新版本
+alembic upgrade head
+
+# 升级到特定版本
+alembic upgrade abc123
+
+# 升级一个版本
+alembic upgrade +1
+```
+
+### 3. 回滚迁移（降级数据库）
+
+```bash
+# 回滚到上一个版本
+alembic downgrade -1
+
+# 回滚到特定版本
+alembic downgrade abc123
+
+# 回滚所有迁移
+alembic downgrade base
+```
+
+### 4. 查看迁移历史
+
+```bash
+# 查看当前版本
+alembic current
+
+# 查看迁移历史
+alembic history
+
+# 查看详细历史（包含 SQL）
+alembic history --verbose
+```
+
+### 5. 创建空迁移（手动编写 SQL）
+
+```bash
+# 创建空迁移脚本，手动编写 SQL
+alembic revision -m "Custom migration"
+```
+
+## 工作流程
+
+### 开发新功能时的典型流程
+
+**1. 定义或修改模型**
+```python
+# backend/models/user.py
+class User(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(unique=True, max_length=50)
+    # 新增字段
+    email_verified: bool = Field(default=False)
+```
+
+**2. 在 env.py 中导入模型**（如果是新模型）
+```python
+# alembic/env.py
+from backend.models.user import User
+from backend.models.task import Task  # 新模型
+```
+
+**3. 创建迁移**
+```bash
+alembic revision --autogenerate -m "Add email_verified to users"
+```
+
+**4. 检查生成的迁移脚本**
+```bash
+# 查看生成的文件
+cat alembic/versions/xxxx_add_email_verified_to_users.py
+```
+
+**5. 执行迁移**
+```bash
+alembic upgrade head
+```
+
+**6. 验证数据库变更**
+```bash
+docker exec -it droidbot_mysql mysql -u droidbot -p -e "USE droidbot_web; DESCRIBE users;"
+```
+
+## 迁移脚本示例
+
+### 自动生成的迁移脚本
+
+```python
+"""Create users table
+
+Revision ID: abc123def456
+Revises:
+Create Date: 2026-01-14 10:30:00
+
+"""
+from alembic import op
+import sqlalchemy as sa
+
+revision = 'abc123def456'
+down_revision = None
+
+def upgrade():
+    op.create_table('users',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('username', sa.String(length=50), nullable=False),
+        sa.Column('email', sa.String(length=100), nullable=False),
+        sa.Column('password_hash', sa.String(length=255), nullable=False),
+        sa.Column('is_active', sa.Boolean(), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('username'),
+        sa.UniqueConstraint('email')
+    )
+    op.create_index('ix_users_username', 'users', ['username'])
+
+def downgrade():
+    op.drop_index('ix_users_username', table_name='users')
+    op.drop_table('users')
+```
+
+### 手动编写的迁移脚本
+
+```python
+"""Add default admin user
+
+Revision ID: def456ghi789
+Revises: abc123def456
+Create Date: 2026-01-14 11:00:00
+
+"""
+from alembic import op
+import sqlalchemy as sa
+from datetime import datetime
+
+revision = 'def456ghi789'
+down_revision = 'abc123def456'
+
+def upgrade():
+    # 插入默认管理员用户
+    op.execute("""
+        INSERT INTO users (username, email, password_hash, is_superuser, created_at)
+        VALUES ('admin', 'admin@example.com', '$2b$12$...', TRUE, NOW())
+    """)
+
+def downgrade():
+    # 删除默认管理员用户
+    op.execute("DELETE FROM users WHERE username = 'admin'")
+```
+
+## 最佳实践
+
+### 1. 迁移命名规范
+
+使用清晰的描述性名称：
+- ✅ `alembic revision -m "Create users table"`
+- ✅ `alembic revision -m "Add email_verified column to users"`
+- ✅ `alembic revision -m "Create index on tasks.status"`
+- ❌ `alembic revision -m "Update"`
+- ❌ `alembic revision -m "Fix"`
+
+### 2. 检查生成的迁移
+
+自动生成的迁移可能不完美，执行前应该：
+1. 查看生成的 SQL
+2. 确认是否符合预期
+3. 必要时手动调整
+
+### 3. 不要修改已执行的迁移
+
+如果迁移已经执行（`alembic upgrade`），不要修改迁移文件：
+- ✅ 创建新的迁移来修正
+- ❌ 修改已执行的迁移文件
+
+### 4. 团队协作
+
+多人开发时：
+1. 拉取最新代码后，先执行 `alembic upgrade head`
+2. 创建新迁移前，确保本地数据库是最新的
+3. 提交代码时，包含迁移文件
+
+### 5. 生产环境部署
+
+部署到生产环境时：
+1. 备份数据库
+2. 在测试环境先执行迁移
+3. 确认无误后再在生产环境执行
+4. 准备好回滚方案（`alembic downgrade`）
+
+## 故障排查
+
+### 问题 1：迁移没有检测到变更
+
+**症状**：
+```
+INFO  [alembic.autogenerate.compare] Detected no changes
+```
+
+**原因**：
+- 模型没有在 `env.py` 中导入
+- 模型定义有误（缺少 `table=True`）
+- 数据库已经是最新状态
+
+**解决**：
+```python
+# 检查 env.py 是否导入了所有模型
+from backend.models.user import User
+from backend.models.task import Task  # 确保导入
+```
+
+### 问题 2：连接数据库失败
+
+**症状**：
+```
+sqlalchemy.exc.OperationalError: (pymysql.err.OperationalError) (2003, "Can't connect to MySQL server")
+```
+
+**解决**：
+1. 检查 MySQL 容器是否运行：`docker-compose -f docker/docker-compose.yml ps`
+2. 检查 `docker/.env` 中的数据库配置
+3. 验证 `backend/database/connection.py` 中的 DATABASE_URL
+
+### 问题 3：迁移冲突
+
+**症状**：
+```
+Multiple head revisions are present
+```
+
+**原因**：多个开发者同时创建了迁移，导致迁移链分叉
+
+**解决**：
+```bash
+# 合并迁移分支
+alembic merge -m "Merge migrations" head1 head2
+```
+
+### 问题 4：回滚失败
+
+**症状**：
+```
+Can't locate revision identified by 'abc123'
+```
+
+**原因**：迁移文件被删除或损坏
+
+**解决**：
+1. 从版本控制恢复迁移文件
+2. 或手动修复数据库和 `alembic_version` 表
+
+## 数据库版本表
+
+Alembic 使用 `alembic_version` 表跟踪当前数据库版本：
+
+```sql
+-- 查看当前版本
+SELECT * FROM alembic_version;
+
+-- 输出示例
++---------------+
+| version_num   |
++---------------+
+| abc123def456  |
++---------------+
+```
+
+这个表只有一行，存储当前迁移的 revision ID。
+
+## 参考资料
+
+- [Alembic 官方文档](https://alembic.sqlalchemy.org/)
+- [SQLModel 文档](https://sqlmodel.tiangolo.com/)
+- [FastAPI 数据库教程](https://fastapi.tiangolo.com/tutorial/sql-databases/)
+
+## 快速参考
+
+```bash
+# 创建迁移
+alembic revision --autogenerate -m "message"
+
+# 执行迁移
+alembic upgrade head
+
+# 回滚迁移
+alembic downgrade -1
+
+# 查看状态
+alembic current
+alembic history
+
+# 查看 SQL（不执行）
+alembic upgrade head --sql
+```

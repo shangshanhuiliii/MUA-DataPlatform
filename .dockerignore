@@ -1,0 +1,13 @@
+# 排除所有
+*
+
+# 只包含需要的目录和文件
+!droidbot/
+!web/alembic
+!web/backend
+!web/static
+!web/templates
+!web/alembic.ini
+!web/main.py
+!pyproject.toml
+!README.md

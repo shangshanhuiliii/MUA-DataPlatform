@@ -1,0 +1,35 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: droidbot_mysql
+    restart: unless-stopped
+    env_file:
+      - ../.env  # 使用 web/.env 配置文件
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # 可选：如需初始化 SQL，取消下行注释并创建 init.sql
+      # - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "sh", "-c", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - droidbot_network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  droidbot_network:
+    driver: bridge
